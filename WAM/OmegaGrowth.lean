@@ -7,12 +7,10 @@ import Mathlib.Data.Nat.Factorial.Basic -- For n!
 import Mathlib.Analysis.SpecialFunctions.Stirling -- For log_factorial_ge_k_log_k_sub_k
 import Mathlib.NumberTheory.PrimeCounting
 
-import Abc.Primorial
-import Abc.WeakStirling
+import WAM.Primorial
+import WAM.WeakStirling
 
 open Filter Topology Nat Real Asymptotics ArithmeticFunction
-
-namespace OmegaLittleOLogN
 
 /--
 The function ω(n) (omega_real n), representing the number of distinct prime factors of n.
@@ -37,8 +35,7 @@ Formally, for every ε > 0, there exists an N such that for all n ≥ N,
 |ω(n)| ≤ ε * |log n|. Since ω(n) and log n (for n > 1) are positive,
 this simplifies to ω(n) ≤ ε * log n.
 -/
-theorem omega_is_little_o_log_n :
-  IsLittleO Filter.atTop omega_real log_of_nat := by
+theorem omega_is_little_o_log_n : omega_real =o[atTop] log_of_nat := by
   
   let log_gt_omega_fact (n : ℕ) := log_of_nat n ≥ log_of_nat (ω n)!
   

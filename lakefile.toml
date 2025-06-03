@@ -1,7 +1,7 @@
-name = "abc"
+name = "wam"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["Abc"]
+defaultTargets = ["WAM"]
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -16,4 +16,4 @@ name = "Canonical"
 scope = "chasenorman"
 
 [[lean_lib]]
-name = "Abc"
+name = "WAM"
