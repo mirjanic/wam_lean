@@ -8,13 +8,32 @@ import Mathlib.Order.Monotone.Basic
 import WAM.Defs
 import WAM.OmegaGrowth
 
+import Canonical
+
 open Nat Set Filter ArithmeticFunction 
 
+set_option maxHeartbeats 500000
 
 lemma tendsto_inv_littleo {α : Type} {l : Filter α} {f g : α → ℝ} (hf : f > 0) (hg : g > 0) 
 (h_tendsto_zero : Tendsto (fun x ↦ f x / g x) l (nhds 0)) : Tendsto (fun k ↦ g k / f k) l atTop  := by
+  
+  let fn (x : α) := f x / g x 
+  have hfn (x : α) : fn x = f x / g x  := by rfl
+  have hfnpos (x : α) : 0 < fn x := by 
+    sorry
+    
+  suffices Tendsto (λ x ↦ 1 / fn x) l atTop by 
+    sorry 
 
-
+  have h_tendsto : Tendsto fn l (nhds 0) := by
+    sorry
+    
+  
+  clear_value fn 
+  clear! h_tendsto_zero hfn hg hf 
+  
+  
+  
   sorry
 
 
@@ -22,8 +41,21 @@ lemma tendsto_inv_littleo {α : Type} {l : Filter α} {f g : α → ℝ} (hf : f
 theorem wam_of_pow2_triples_diverges (s : ℝ) (hs0 : 0 < s) (hs1 : s < 1) : 
 atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by 
 
-  unfold WAM 
+  unfold WAM
+
   let pow2triple (k : ℕ) := 2^k * (2^k+1)
+  have hpown1 (k : ℕ) : 1 < pow2triple k := by 
+    unfold pow2triple 
+    refine Nat.one_lt_mul_iff.mpr ?_
+    constructor 
+    . exact Nat.two_pow_pos k
+    constructor 
+    . exact zero_lt_succ (2 ^ k)
+    right 
+    refine Nat.lt_add_of_pos_left ?_
+    exact Nat.two_pow_pos k
+
+
   have h_2 (k : ℕ) (hk : k ≠ 0) : (pow2triple k).factorization 2 = k := by 
     unfold pow2triple 
     rw [Nat.factorization_mul_apply_of_coprime]
@@ -57,12 +89,22 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
   -/
   let num (k : ℕ) := WAM.Helpers.numerator (pow2triple k) s 
   have h_num_def (k : ℕ) : num k = WAM.Helpers.numerator (pow2triple k) s := rfl
-  have h_num_pos (k : ℕ) : num k > 0 := by sorry 
 
   let denom (k : ℕ) := WAM.Helpers.denominator (pow2triple k) s 
   have h_denom_def (k : ℕ) : denom k = WAM.Helpers.denominator (pow2triple k) s := rfl
-  have h_denom_pos (k : ℕ) : denom k > 0 := by sorry
 
+  have h_denom_pos (k : ℕ) : denom k > 0 := by 
+    refine WAM.Helpers.denominator_pos (pow2triple k) s ?_
+    exact hpown1 k
+
+  have h_num_pos (k : ℕ) : num k > 0 := by 
+    have h := WAM_ge_1 (pow2triple k) s (hpown1 k) 
+    unfold WAM at h 
+    rw [← h_num_def, ← h_denom_def] at h 
+    suffices num k ≥ denom k by 
+      exact gt_of_ge_of_gt this (h_denom_pos k)
+    exact (one_le_div₀ (h_denom_pos k)).mp h
+    
   /-
   -- Simplify numerator and denominator exprs
   -/
@@ -163,9 +205,10 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
       let h_omega_growth := omega_is_little_o_log_n
       unfold log_of_nat omega_real at h_omega_growth 
       
+
       sorry -- combine omega_growth and this
 
-    
+    -- Needs Jensen's inequality: ConcaveOn.le_map_sum
 
     sorry -- hardest
 

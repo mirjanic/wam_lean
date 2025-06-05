@@ -5,6 +5,8 @@ import Mathlib.Data.Nat.Prime.Basic
 import Mathlib.Data.Nat.Prime.Nth
 import Mathlib.NumberTheory.ArithmeticFunction
 
+import Canonical
+
 open Nat ArithmeticFunction
 
 
@@ -24,7 +26,7 @@ noncomputable def primorial : ℕ → ℕ
 @[simp] lemma primorial_zero : primorial 0 = 1 := by rfl
 @[simp] lemma primorial_one : primorial 1 = 2 := by simp only [primorial, mul_one, nth_prime_zero_eq_two]
 lemma primorial_succ (n : ℕ) : primorial (n + 1) = (Nat.nth Nat.Prime n) * primorial n := by
-  rw [primorial] -- rfl works if the definition is accessible in this way
+  rw [primorial]
 
 
 theorem primorial_pos (n : ℕ) : primorial n > 0 := by
@@ -52,13 +54,14 @@ lemma first_n_primes_len (n : ℕ) : (first_n_primes_list n).length = n := by
     simp only [List.length_append, List.length_cons, List.length_nil, zero_add,
       Nat.add_right_cancel_iff]
     exact ih 
+    
 
 lemma first_n_primes_as_map (n : ℕ) : (first_n_primes_list n) = (List.finRange n).map (Nat.nth Nat.Prime) := by
   induction n with 
   | zero => rfl
   | succ k ih =>
     rw [first_n_primes_list]
-    
+     
     sorry 
 
 theorem nodup_first_n_primes (n : ℕ) : (first_n_primes_list n).Nodup := by 
@@ -71,8 +74,7 @@ theorem nodup_first_n_primes (n : ℕ) : (first_n_primes_list n).Nodup := by
   exact List.nodup_finRange n
 
 theorem dedup_first_n_primes (n : ℕ) : (first_n_primes_list n) = (first_n_primes_list n).dedup := by 
-  refine Eq.symm (List.Nodup.dedup ?_)
-  exact nodup_first_n_primes n
+  exact Eq.symm (List.Nodup.dedup (nodup_first_n_primes n))
 
 
 /- 
@@ -101,6 +103,7 @@ theorem omega_primorial_eq_self (n : ℕ) : ω (primorial n) = n := by
   exact first_n_primes_len n
 
 theorem primorial_omega_le_self (n : ℕ) : primorial (ω n) ≤ n := by 
+  
   sorry
 
 -- Auxiliary theorem: primorial (m+1) > factorial (m+1) for m : ℕ
@@ -130,7 +133,13 @@ theorem primorial_gt_factorial_aux (m : ℕ) :
       apply Nat.mul_lt_mul_of_pos_left
       · exact ih -- primorial (j + 1) > factorial (j + 1)
       · exact Prime.pos (nth_prime_is_prime (j + 1))
-    sorry
+    
+    simp_all only [gt_iff_lt]
+    
+    refine Nat.mul_lt_mul_of_le_of_lt' ?_ ?_ ?_
+    . sorry -- prime ineq easy? 
+    . exact ih
+    . exact zero_lt_succ (j + 1)
 
 -- Main theorem: primorial n > n! for n ≥ 1
 theorem primorial_gt_factorial_for_n_ge_1 (n : ℕ) (hn : n ≥ 1) :
