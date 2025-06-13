@@ -14,6 +14,18 @@ lemma nth_prime_is_prime (n : ℕ) : Nat.Prime (Nat.nth Nat.Prime n) := Nat.nth_
 lemma nth_prime_strict_mono : StrictMono (Nat.nth Nat.Prime) := Nat.nth_strictMono infinite_setOf_prime  
 lemma nth_prime_injective : Function.Injective (Nat.nth Nat.Prime) := StrictMono.injective nth_prime_strict_mono 
 
+lemma nth_prime_bound (n : ℕ) : n + 1 ≤ Nat.nth Nat.Prime n := by
+  induction n with 
+  | zero => 
+    rw [nth_prime_zero_eq_two]
+    exact le_of_ble_eq_true rfl
+  | succ m ih => 
+    suffices Nat.nth Nat.Prime m < Nat.nth Nat.Prime (m + 1) by 
+      exact Lean.Grind.Nat.le_lo (m + 1) (nth Nat.Prime m) (nth Nat.Prime (m + 1)) 1 ih this
+    rw [Nat.nth_lt_nth]
+    . exact lt_add_one m
+    exact infinite_setOf_prime
+
 /- 
   Primorial 
 -/
@@ -37,6 +49,7 @@ theorem primorial_pos (n : ℕ) : primorial n > 0 := by
     apply mul_pos
     · exact Nat.Prime.pos (nth_prime_is_prime k)
     · exact ih
+
 /-
   First n primes list
 -/
@@ -69,7 +82,7 @@ theorem nodup_first_n_primes (n : ℕ) : (first_n_primes_list n).Nodup := by
   rw [List.nodup_map_iff nth_prime_injective]
   suffices (List.finRange n).Nodup by 
     . simp [List.flatMap_singleton]
-      
+       
       sorry
   exact List.nodup_finRange n
 
@@ -103,7 +116,7 @@ theorem omega_primorial_eq_self (n : ℕ) : ω (primorial n) = n := by
   exact first_n_primes_len n
 
 theorem primorial_omega_le_self (n : ℕ) : primorial (ω n) ≤ n := by 
-  
+   
   sorry
 
 -- Auxiliary theorem: primorial (m+1) > factorial (m+1) for m : ℕ
@@ -137,7 +150,7 @@ theorem primorial_gt_factorial_aux (m : ℕ) :
     simp_all only [gt_iff_lt]
     
     refine Nat.mul_lt_mul_of_le_of_lt' ?_ ?_ ?_
-    . sorry -- prime ineq easy? 
+    . exact nth_prime_bound (j + 1) 
     . exact ih
     . exact zero_lt_succ (j + 1)
 
