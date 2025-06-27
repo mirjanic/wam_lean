@@ -21,7 +21,7 @@ lemma tendsto_inv_littleo {α : Type} {l : Filter α} {f g : α → ℝ}
   have hfn (x : α) : fn x = f x / g x  := by rfl
   have hfnpos (x : α) : 0 < fn x := by 
     exact _root_.div_pos (hf x) (hg x) 
-    
+
   suffices Tendsto fn⁻¹ l atTop by 
     conv at this =>
       congr
@@ -76,13 +76,13 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
   let pow2triple (k : ℕ) := 2^k * (2^k+1)
   have hpown1 (k : ℕ) : 1 < pow2triple k := by 
     unfold pow2triple 
-    refine Nat.one_lt_mul_iff.mpr ?_
+    apply Nat.one_lt_mul_iff.mpr
     constructor 
     . exact Nat.two_pow_pos k
     constructor 
     . exact zero_lt_succ (2 ^ k)
     right 
-    refine Nat.lt_add_of_pos_left ?_
+    apply Nat.lt_add_of_pos_left
     exact Nat.two_pow_pos k
 
 
@@ -226,11 +226,67 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
     let f (k : ℕ) := (Real.log 2)^s + (ω (2^k + 1) : ℝ)^(1-s) * (Real.log (2^k + 1))^s
     
     have hf : f =o[atTop] linear := by
-      /- unfold omega_real log_of_nat at h_omega_growth   -/
-      /- clear h_denom_def h_denom_pos h_2inprimes h_2 hpown1 -/
-      /- have h : atTop.Tendsto pow2triple atTop := sorry  -/
+      let pow2 (k : ℕ) := 2^k + 1 
+
+      suffices f =o[atTop] (log_of_nat ∘ pow2) by 
+        refine Asymptotics.IsLittleO.trans_isBigO this ?_
+        rw [Asymptotics.isBigO_atTop_iff_eventually_exists]
+        rw [Filter.eventually_atTop]
+        use 1
+        intro b hb
+        let c := Real.log 4 
+        use c 
+        intro n hn 
+        unfold log_of_nat pow2 linear 
+        simp only [Function.comp_apply, cast_add, cast_pow, cast_ofNat, cast_one, Real.norm_eq_abs,
+          Real.norm_natCast]
+        have hn : 1 ≤ n := Nat.le_trans hb hn
+        simp only [abs_cast]
+        suffices Real.log (2^n + 1) ≤ c * n by 
+          rw [abs_eq_self.mpr ?_]
+          . exact this
+          apply Real.log_nonneg 
+          norm_cast 
+          exact Nat.le_add_left 1 (2 ^ n)
+        unfold c 
+        rw [Real.log_le_iff_le_exp ?_]
+        swap 
+        . norm_cast 
+          exact zero_lt_succ (2 ^ n)
+        rw [mul_comm]
+        rw [Real.exp_nat_mul]
+        rw [Real.exp_log four_pos]
+        norm_cast
+        have h_2_le_2n : 2 ≤ 2^n := Bound.le_self_pow_of_pos one_le_two hn
+        calc 2^n + 1 ≤ 2^n + 2 := le_succ (2 ^ n + 1) 
+          _ ≤ 2^n + 2^n := Nat.add_le_add_iff_left.mpr h_2_le_2n 
+          _ = 2 * 2^n := Eq.symm (Nat.two_mul (2 ^ n)) 
+          _ ≤ 2^n * 2^n := Nat.mul_le_mul_right (2 ^ n) h_2_le_2n
+          _ = (2 * 2)^n := Eq.symm (Nat.mul_pow 2 2 n) 
+          _ = 4^n := by exact rfl
       
-      sorry  -- from h_omega_growth, compose with pow2triple
+      suffices (omega_real ∘ pow2)  =o[atTop] (log_of_nat ∘ pow2) by 
+        /- refine Asymptotics.IsBigO.trans_isLittleO ?_ this  -/
+        /- unfold f  -/
+        /- rw [Asymptotics.isBigO_atTop_iff_eventually_exists] -/
+        /- rw [Filter.eventually_atTop] -/
+        /- use 1  -/
+        /- intro b hb  -/
+        /- let c := 100  -/
+        /- use c  -/
+        /- intro n hn  -/
+        
+        sorry
+
+      apply Asymptotics.IsLittleO.comp_tendsto h_omega_growth
+      apply StrictMono.tendsto_atTop
+      apply strictMono_nat_of_lt_succ 
+      intro n 
+      unfold pow2 
+      refine Nat.add_lt_add_right ?_ 1
+      refine Nat.pow_lt_pow_of_lt ?_ ?_
+      . exact Nat.one_lt_two
+      . exact lt_add_one n
     
     /-
     -- Now we only need to show that denom grows not faster than f
@@ -263,7 +319,17 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
     let coeff (k : ℕ) : ℝ := 1 / ↑ ome
 
     have herase2 : WAM.Helpers.getPrimes (2^k+1) = (WAM.Helpers.getPrimes (pow2triple k)).erase 2 := by 
-      sorry
+      unfold WAM.Helpers.getPrimes pow2triple
+      refine Finset.Subset.antisymm_iff.mpr ?_
+      constructor 
+      . -- (2 ^ k + 1).primeFactors ⊆ (2 ^ k * (2 ^ k + 1)).primeFactors.erase 2 
+        apply Finset.subset_iff.mpr 
+        intro p hp
+        suffices p ∈ (2 ^ k * (2 ^ k + 1)).primeFactors ∧ p ≠ 2 by 
+          sorry
+        sorry
+      . 
+        sorry
 
     set expr1 := ∑ p ∈ WAM.Helpers.getPrimes (2^k+1), (coeff p) * (Real.log p)^s with hexpr1 
     have h_denom_k : denom_k = (Real.log 2)^s + ome * expr1 := by 
@@ -345,12 +411,24 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
           exact Real.log_natCast_nonneg p
         . exact le_of_lt hs0
       
-      rw [← Real.log_prod (WAM.Helpers.getPrimes (2 ^ k + 1)) (fun x ↦ (x:ℝ)) ?_] 
+      rw [← Real.log_prod (WAM.Helpers.getPrimes (2 ^ k + 1)) (fun x ↦ x) ?_] 
       . unfold WAM.Helpers.getPrimes 
         rw [Real.log_le_log_iff ?_ ?_] 
-        . sorry -- by Nat.prod_primeFactorsList
-        . sorry  
-        . sorry
+        . -- ∏ i ∈ (2 ^ k + 1).primeFactors, ↑i ≤ 2 ^ k + 1
+          suffices ∏ i ∈ (2 ^ k + 1).primeFactors, i ≤ 2 ^ k + 1 by
+            sorry
+          suffices (2 ^ k + 1).primeFactorsList.prod ≤ 2 ^ k + 1 by  
+            apply le_trans ?_ this
+            sorry
+          refine le_of_eq (prod_primeFactorsList ?_)
+          exact Ne.symm (zero_ne_add_one (2 ^ k)) 
+        . -- 0 < ∏ i ∈ (2 ^ k + 1).primeFactors, ↑i
+          apply Finset.prod_pos
+          intro p hp 
+          rw [mem_primeFactors] at hp  
+          exact_mod_cast Prime.pos hp.1 
+        . -- 0 < 2 ^ k + 1
+          exact_mod_cast zero_lt_succ (2^k)
       intro p hp 
       unfold WAM.Helpers.getPrimes at hp
       simp only [mem_primeFactors, ne_eq, Nat.add_eq_zero, Nat.pow_eq_zero, OfNat.ofNat_ne_zero,
