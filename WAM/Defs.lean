@@ -13,8 +13,6 @@ import Mathlib.Algebra.Order.Field.Basic
 
 /- import Mathlib.NumberTheory.ArithmeticFunction -/
 
-import Canonical
-
 open Nat Finset PNat BigOperators Real ArithmeticFunction
 
 
@@ -23,9 +21,9 @@ namespace WAM.Helpers
   variable (n : ℕ)
   variable (s : ℝ)
 
-  def getPrimes : Finset ℕ := n.primeFactors
+  abbrev getPrimes : Finset ℕ := n.primeFactors
 
-  def getExponent (p : ℕ) : ℕ := n.factorization p
+  abbrev getExponent (p : ℕ) : ℕ := n.factorization p
 
   noncomputable def termVal (p : ℕ) : ℝ := ((p : ℝ).log) ^ s
 

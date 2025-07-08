@@ -12,28 +12,28 @@ import WAM.WeakStirling
 
 open Filter Topology Nat Real Asymptotics ArithmeticFunction
 
-/--
-The function ω(n) (omega_real n), representing the number of distinct prime factors of n.
-The result is cast to ℝ for asymptotic comparison.
-Uses`ArithmeticFunction.cardDistinctPrimeFactors`.
+/-
+  The function ω(n) (omega_real n), representing the number of distinct prime factors of n.
+  The result is cast to ℝ for asymptotic comparison.
+  Uses`ArithmeticFunction.cardDistinctPrimeFactors`.
 -/
 noncomputable def omega_real (n : ℕ) : ℝ := (ω n : ℝ)
 
-/--
-The natural logarithm of a natural number n, cast to ℝ.
-`Real.log x` is the natural logarithm of x.
-Note: By mathlib convention, `Real.log 0 = 0` and `Real.log 1 = 0`.
-This is acceptable for asymptotics using `Filter.atTop` as we are interested in large n,
-where n ≥ 2 and thus log (n : ℝ) > 0.
+/-
+  The natural logarithm of a natural number n, cast to ℝ.
+  `Real.log x` is the natural logarithm of x.
+  Note: By mathlib convention, `Real.log 0 = 0` and `Real.log 1 = 0`.
+  This is acceptable for asymptotics using `Filter.atTop` as we are interested in large n,
+  where n ≥ 2 and thus log (n : ℝ) > 0.
 -/
 noncomputable def log_of_nat (n : ℕ) : ℝ := Real.log (n : ℝ)
 
-/--
-The theorem stating that ω(n) is little-o of log n as n tends to infinity.
-This means that the ratio ω(n) / log n tends to 0 as n → ∞.
-Formally, for every ε > 0, there exists an N such that for all n ≥ N,
-|ω(n)| ≤ ε * |log n|. Since ω(n) and log n (for n > 1) are positive,
-this simplifies to ω(n) ≤ ε * log n.
+/-
+  The theorem stating that ω(n) is little-o of log n as n tends to infinity.
+  This means that the ratio ω(n) / log n tends to 0 as n → ∞.
+  Formally, for every ε > 0, there exists an N such that for all n ≥ N,
+  |ω(n)| ≤ ε * |log n|. Since ω(n) and log n (for n > 1) are positive,
+  this simplifies to ω(n) ≤ ε * log n.
 -/
 theorem omega_is_little_o_log_n : omega_real =o[atTop] log_of_nat := by
   
@@ -54,7 +54,7 @@ theorem omega_is_little_o_log_n : omega_real =o[atTop] log_of_nat := by
       exact List.length_pos_iff_exists_mem.mpr hn
 
     let prim := primorial k
-    have h_log_prim : n ≥ prim := primorial_omega_le_self n 
+    have h_log_prim : n ≥ prim := primorial_omega_le_self hk 
     have h_prim_omega : prim > k.factorial := primorial_gt_factorial_for_n_ge_1 k hk
     have h_omegas : ω n = ω prim := by 
       convert_to k = ω (primorial k)

@@ -1,6 +1,6 @@
 import Mathlib.Data.Nat.Basic
 import Batteries.Data.Nat.Gcd
-import Mathlib.Algebra.Group.Defs -- For one_mul
+import Mathlib.Algebra.Group.Defs
 import Mathlib.Data.Finite.Defs
 import Mathlib.Analysis.Asymptotics.Defs
 import Mathlib.Order.Monotone.Basic
@@ -45,74 +45,137 @@ lemma tendsto_inv_littleo {α : Type} {l : Filter α} {f g : α → ℝ}
   refine tendsto_nhdsWithin_of_tendsto_nhds_of_eventually_within fn h_tendsto ?_ 
   apply Filter.Eventually.of_forall hfnpos
   
-lemma exp_s_concave {s : ℝ} (h0 : 0 < s) (h1 : s < 1) : ConcaveOn ℝ {x : ℝ | 0 < x} (λ x ↦ x^s) := by 
-  have hderiv : (deriv fun x ↦ x ^ s) = fun x ↦ s * x ^ (s-1) := by 
-    sorry 
-  have hderiv2 : (deriv^[2] (fun x ↦ x ^ s)) = fun x ↦ s * (s-1) * s ^ (s-2) := by sorry
+lemma pow_s_concave {s : ℝ} (h0 : 0 < s) (h1 : s < 1) : ConcaveOn ℝ {x : ℝ | 0 < x} (λ x ↦ x^s) := by 
+  rw [show {x : ℝ | 0 < x} = Set.Ioi 0 by rfl]
+  have hderiv {x : ℝ} (hx : 0 < x) : (deriv fun x ↦ x ^ s) x = s * x ^ (s-1) := by 
+    apply Real.deriv_rpow_const
+    left 
+    exact Ne.symm (_root_.ne_of_lt hx)
+  have hderiv2 {x : ℝ} (hx : 0 < x) : (deriv^[2] (fun x ↦ x ^ s)) x = s * (s-1) * s ^ (s-2) := by
+    
+    sorry
   apply concaveOn_of_deriv2_nonpos
   . exact convex_Ioi 0 
   . suffices Continuous (fun x ↦ x ^ s) by 
       exact Continuous.continuousOn this
     exact Real.continuous_rpow_const (le_of_lt h0)
-  . suffices DifferentiableOn ℝ (fun x : ℝ => x ^ s) {0}ᶜ by
+  . rw [interior_Ioi]
+    suffices DifferentiableOn ℝ (fun x : ℝ => x ^ s) {0}ᶜ by
       refine DifferentiableOn.mono this ?_
       refine subset_compl_singleton_iff.mpr ?_
-      sorry 
+      exact Set.notMem_Ioi_self
     exact Real.differentiableOn_rpow_const s
-    
-  . sorry -- differentiable 2x 
-  . intro x hx -- main concavity
+  . -- differentiable 2x 
+    rw [interior_Ioi]
+     
+    sorry
+  . -- main concavity
+    rw [interior_Ioi]
+    intro x hx 
     have h1 : s * (s - 1) < 0 := by sorry 
     have h2 : 0 < x ^ (s - 2) := by sorry 
     sorry
 
 
+lemma prime_factor_erase_num {p n k : ℕ} (hp : p.Prime) (hn : n ≠ 0) (hk : k ≠ 0) : 
+    (p^k * n).primeFactors.erase p = n.primeFactors.erase p := by 
+  rw [Nat.primeFactors_mul (pow_ne_zero k (Nat.Prime.ne_zero hp)) hn]
+  rw [Nat.primeFactors_prime_pow hk hp] 
+  refine (Finset.erase_eq_iff_eq_insert ?_ ?_).mpr ?_
+  . refine Finset.mem_union_left n.primeFactors ?_
+    exact Finset.mem_singleton.mpr rfl
+  . exact Finset.notMem_erase p n.primeFactors
+  rw [Finset.insert_eq,
+      ← Finset.sdiff_singleton_eq_erase p n.primeFactors]
+  exact Eq.symm Finset.union_sdiff_self_eq_union
+
+lemma prime_factors_erase_eq {n k : ℕ} (h : ¬ k ∣ n) : n.primeFactors.erase k = n.primeFactors := by 
+  apply Finset.erase_eq_self.mpr
+  apply Nat.dvd_of_mem_primeFactors.mt
+  exact h
+
+lemma rad_le {n : ℕ} (h : 0 < n) : ∏ i ∈ n.primeFactors, i ≤ n := by 
+  apply le_of_dvd
+  . exact h 
+  . exact Nat.prod_primeFactors_dvd n
+
+lemma log_rad_le {n : ℕ} (h : 0 < n) : ∑ p ∈ n.primeFactors, Real.log (p:ℝ) ≤ Real.log n := by
+
+  
+  sorry
+
+/-
+-- pow2triples 
+-/ 
+
+abbrev pow2triple (k : ℕ) := 2^k * (2^k+1)
+
+lemma one_lt_pow2triple (k : ℕ) : 1 < pow2triple k := by 
+  unfold pow2triple 
+  apply Nat.one_lt_mul_iff.mpr
+  constructor 
+  . exact Nat.two_pow_pos k
+  constructor 
+  . exact zero_lt_succ (2 ^ k)
+  right 
+  apply Nat.lt_add_of_pos_left
+  exact Nat.two_pow_pos k
+
+
+lemma pow2triple_factorization_two {k : ℕ} (hk : k ≠ 0) : (pow2triple k).factorization 2 = k := by 
+  unfold pow2triple 
+  rw [Nat.factorization_mul_apply_of_coprime]
+  . rw [Nat.Prime.factorization_pow]
+    . simp only [Finsupp.single_eq_same, Nat.add_eq_left]
+      have h := factorization_eq_zero_of_remainder (2^(k-1)) (Nat.Prime.not_dvd_one prime_two) 
+      rw [mul_comm,
+          ← pow_succ 2 (k-1), 
+          Nat.sub_add_cancel (show 1 ≤ k by exact one_le_iff_ne_zero.mpr hk)
+          ] at h 
+      exact h
+    . exact prime_two
+  . refine (coprime_add_iff_right ?_).mpr ?_
+    . exact Nat.dvd_refl (2 ^ k)
+    . exact gcd_pow_left_of_gcd_eq_one rfl
+  
+lemma two_in_pow2triple_primes (k : ℕ) : 2 ∈ WAM.Helpers.getPrimes (pow2triple k) := by 
+  unfold WAM.Helpers.getPrimes
+  rw [Nat.mem_primeFactors]
+  constructor 
+  . exact prime_two 
+  constructor
+  . unfold pow2triple
+    cases k
+    . exact Nat.dvd_mul_left 2 (2 ^ 0)
+    . (expose_names; refine Nat.dvd_mul_right_of_dvd ?_ (2 ^ (n + 1) + 1))
+      exact Dvd.intro_left (Nat.pow 2 n) rfl
+  . exact Ne.symm (NeZero.ne' (pow2triple k))
+
+lemma herase2 {k : ℕ} (hk : 0 < k) : 
+    WAM.Helpers.getPrimes (2^k+1) = (WAM.Helpers.getPrimes (pow2triple k)).erase 2 := by 
+  unfold WAM.Helpers.getPrimes pow2triple
+  apply Eq.symm
+  calc (2^k * (2^k+1)).primeFactors.erase 2 = (2^k+1).primeFactors.erase 2 := by 
+        refine prime_factor_erase_num ?_ ?_ ?_ 
+        . exact prime_two 
+        . exact Ne.symm (zero_ne_add_one (2 ^ k))
+        . exact Nat.ne_zero_of_lt hk
+    _ =  (2 ^ k + 1).primeFactors := by 
+        refine prime_factors_erase_eq ?_
+        have h : 2^k = 2 * 2^(k-1 : ℕ) := by 
+          refine Eq.symm (mul_pow_sub_one ?_ 2)   
+          exact Nat.ne_zero_of_lt hk
+        rw [h]
+        exact Nat.two_not_dvd_two_mul_add_one (2^(k-1))
+
+/-
+-- Main theorem 
+-/
 
 theorem wam_of_pow2_triples_diverges (s : ℝ) (hs0 : 0 < s) (hs1 : s < 1) : 
 atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by 
 
   unfold WAM
-
-  let pow2triple (k : ℕ) := 2^k * (2^k+1)
-  have hpown1 (k : ℕ) : 1 < pow2triple k := by 
-    unfold pow2triple 
-    apply Nat.one_lt_mul_iff.mpr
-    constructor 
-    . exact Nat.two_pow_pos k
-    constructor 
-    . exact zero_lt_succ (2 ^ k)
-    right 
-    apply Nat.lt_add_of_pos_left
-    exact Nat.two_pow_pos k
-
-
-  have h_2 (k : ℕ) (hk : k ≠ 0) : (pow2triple k).factorization 2 = k := by 
-    unfold pow2triple 
-    rw [Nat.factorization_mul_apply_of_coprime]
-    . rw [Nat.Prime.factorization_pow]
-      . simp only [Finsupp.single_eq_same, Nat.add_eq_left]
-        have h := factorization_eq_zero_of_remainder (2^(k-1)) (Nat.Prime.not_dvd_one prime_two) 
-        rw [mul_comm,
-            ← pow_succ 2 (k-1), 
-            Nat.sub_add_cancel (show 1 ≤ k by exact one_le_iff_ne_zero.mpr hk)
-            ] at h 
-        exact h
-      . exact prime_two
-    . refine (coprime_add_iff_right ?_).mpr ?_
-      . exact Nat.dvd_refl (2 ^ k)
-      . exact gcd_pow_left_of_gcd_eq_one rfl
-  have h_2inprimes (k : ℕ) : 2 ∈ WAM.Helpers.getPrimes (pow2triple k) := by 
-    unfold WAM.Helpers.getPrimes
-    rw [Nat.mem_primeFactors]
-    constructor 
-    . exact prime_two 
-    constructor
-    . unfold pow2triple
-      cases k
-      . exact Nat.dvd_mul_left 2 (2 ^ 0)
-      . (expose_names; refine Nat.dvd_mul_right_of_dvd ?_ (2 ^ (n + 1) + 1))
-        exact Dvd.intro_left (Nat.pow 2 n) rfl
-    . exact Ne.symm (NeZero.ne' (pow2triple k))
 
   /-
   -- Define numerator and denominator 
@@ -125,10 +188,10 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
 
   have h_denom_pos (k : ℕ) : 0 < denom k := by 
     refine WAM.Helpers.denominator_pos (pow2triple k) s ?_
-    exact hpown1 k
+    exact one_lt_pow2triple k
 
   have h_num_pos (k : ℕ) : num k > 0 := by 
-    have h := WAM_ge_1 (pow2triple k) s (hpown1 k) 
+    have h := WAM_ge_1 (pow2triple k) s (one_lt_pow2triple k) 
     unfold WAM at h 
     rw [← h_num_def, ← h_denom_def] at h 
     suffices num k ≥ denom k by 
@@ -201,7 +264,7 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
           . intro p 
             rw [← hf p]
         . skip
-      rw [← Finset.add_sum_erase (WAM.Helpers.getPrimes (pow2triple k)) f (h_2inprimes k)]
+      rw [← Finset.add_sum_erase (WAM.Helpers.getPrimes (pow2triple k)) f (two_in_pow2triple_primes k)]
       simp only [ge_iff_le, le_add_iff_nonneg_right, linear]
       refine Finset.sum_nonneg fun i a ↦ hf0 i ?_
       simp only [Finset.mem_erase, ne_eq, linear] at a
@@ -212,7 +275,7 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
     unfold WAM.Helpers.termVal c 
     simp only [cast_ofNat, mul_eq_mul_right_iff, Nat.cast_inj]
     left 
-    exact h_2 k hk 
+    exact pow2triple_factorization_two hk 
 
   /-
   -- denom k is o(k)
@@ -306,6 +369,7 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
     use k_min
 
     intro k hk
+    have hk1 : 1 < k := lt_of_le_of_lt' hk hkmin
     let denom_k := denom k
     let ome := ω (2^k + 1)
     have home : 0 < ome := by
@@ -316,28 +380,16 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
       rw [Nat.nonempty_primeFactors]
       simp only [lt_add_iff_pos_left, ofNat_pos, pow_pos]
     
-    let coeff (k : ℕ) : ℝ := 1 / ↑ ome
-
-    have herase2 : WAM.Helpers.getPrimes (2^k+1) = (WAM.Helpers.getPrimes (pow2triple k)).erase 2 := by 
-      unfold WAM.Helpers.getPrimes pow2triple
-      refine Finset.Subset.antisymm_iff.mpr ?_
-      constructor 
-      . -- (2 ^ k + 1).primeFactors ⊆ (2 ^ k * (2 ^ k + 1)).primeFactors.erase 2 
-        apply Finset.subset_iff.mpr 
-        intro p hp
-        suffices p ∈ (2 ^ k * (2 ^ k + 1)).primeFactors ∧ p ≠ 2 by 
-          sorry
-        sorry
-      . 
-        sorry
-
+    let coeff (_ : ℕ) : ℝ := 1 / ↑ ome
+        
     set expr1 := ∑ p ∈ WAM.Helpers.getPrimes (2^k+1), (coeff p) * (Real.log p)^s with hexpr1 
     have h_denom_k : denom_k = (Real.log 2)^s + ome * expr1 := by 
-      /- unfold denom_k denom ome expr1 coeff ome -/
+      unfold denom_k denom ome expr1 coeff ome
+      
       sorry
     set expr2 := (∑ p ∈ WAM.Helpers.getPrimes (2^k+1), (coeff p) * Real.log p)^s with hexpr2
     
-    set expr3 := ome^(-s) * (∑ p ∈ WAM.Helpers.getPrimes (2^k+1), Real.log p)^s with hexpr3 
+    set expr3 := ome^(-s) * (∑ p ∈ (WAM.Helpers.getPrimes (2^k+1) : Finset ℕ), Real.log (p:ℝ))^s with hexpr3 
     set expr4 := ome^(-s) * (Real.log (2^k+1))^s with hexpr4
 
     /-
@@ -346,7 +398,7 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
     have hrel1 : expr1 ≤ expr2 := by
       
       unfold expr1 expr2 
-      refine ConcaveOn.le_map_sum (exp_s_concave hs0 hs1) ?_ ?_ ?_
+      refine ConcaveOn.le_map_sum (pow_s_concave hs0 hs1) ?_ ?_ ?_
       . -- coeffs positive
         intro p _ 
         unfold coeff 
@@ -400,10 +452,10 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
 
     have hrel3 : expr3 ≤ expr4 := by
       unfold expr3 expr4 
-      suffices (∑ p ∈ WAM.Helpers.getPrimes (2 ^ k + 1), Real.log ↑p) ^ s ≤ Real.log (2 ^ k + 1) ^ s by 
+      suffices (∑ p ∈ (WAM.Helpers.getPrimes (2 ^ k + 1):Finset ℕ), Real.log ↑p) ^ s ≤ Real.log (2 ^ k + 1) ^ s by 
         refine (mul_le_mul_iff_of_pos_left ?_).mpr this
         exact Real.rpow_pos_of_pos (cast_pos.mpr home) (-s)
-      suffices (∑ p ∈ WAM.Helpers.getPrimes (2 ^ k + 1), Real.log ↑p) ≤ Real.log (2 ^ k + 1) by 
+      suffices (∑ p ∈ (WAM.Helpers.getPrimes (2 ^ k + 1):Finset ℕ), Real.log ↑p) ≤ Real.log (2 ^ k + 1) by 
         refine Real.rpow_le_rpow ?_ this ?_
         . suffices ∀ p ∈ WAM.Helpers.getPrimes (2 ^ k + 1), 0 ≤ Real.log (p : ℝ) by 
             exact Finset.sum_nonneg this
@@ -411,15 +463,32 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
           exact Real.log_natCast_nonneg p
         . exact le_of_lt hs0
       
+      /- rw [WAM.Helpers.getPrimes] -/
+      /- calc ∑ p ∈ ((2^k+1).primeFactors : Finset ℝ), Real.log ↑p = 0  := by sorry  -/
+      /-   _ ≤ Real.log ↑(2 ^ k + 1) := by sorry  -/
+      /-   _ = Real.log (2 ^ k + 1) := by sorry -/
+      /- refine log_rad_le (Nat.add_pos_right (2 ^ k) zero_lt_one) -/
+
+      
       rw [← Real.log_prod (WAM.Helpers.getPrimes (2 ^ k + 1)) (fun x ↦ x) ?_] 
       . unfold WAM.Helpers.getPrimes 
         rw [Real.log_le_log_iff ?_ ?_] 
         . -- ∏ i ∈ (2 ^ k + 1).primeFactors, ↑i ≤ 2 ^ k + 1
           suffices ∏ i ∈ (2 ^ k + 1).primeFactors, i ≤ 2 ^ k + 1 by
+            /- conv =>  -/
+            /-   left  -/
+            /-   right -/
+            /-   intro i  -/
+            /-   rw [show i = (Nat.floor i) by rfl] -/
+            /- rw [← Finset.prod_natCast (2^k+1).primeFactors Nat.floor] -/
+             
             sorry
           suffices (2 ^ k + 1).primeFactorsList.prod ≤ 2 ^ k + 1 by  
             apply le_trans ?_ this
-            sorry
+            rw [Nat.prod_primeFactorsList]
+            . apply rad_le 
+              exact Nat.add_pos_right (2 ^ k) Nat.one_pos
+            . exact Ne.symm (zero_ne_add_one (2 ^ k))
           refine le_of_eq (prod_primeFactorsList ?_)
           exact Ne.symm (zero_ne_add_one (2 ^ k)) 
         . -- 0 < ∏ i ∈ (2 ^ k + 1).primeFactors, ↑i
@@ -451,7 +520,7 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
     unfold denom
     
     -- Apply relations to finish computation
-    calc WAM.Helpers.denominator (pow2triple k) s  = (Real.log 2)^s + ome * expr1  := h_denom_k
+    calc WAM.Helpers.denominator (pow2triple k) s = (Real.log 2)^s + ome * expr1  := h_denom_k
       _ ≤ (Real.log 2)^s + ome * expr2 := by
         refine (add_le_add_iff_left (Real.log 2 ^ s)).mpr ?_
         refine (mul_le_mul_iff_of_pos_left ?_).mpr hrel1

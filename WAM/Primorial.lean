@@ -10,17 +10,19 @@ import Canonical
 open Nat ArithmeticFunction
 
 
-lemma nth_prime_is_prime (n : ℕ) : Nat.Prime (Nat.nth Nat.Prime n) := Nat.nth_mem_of_infinite infinite_setOf_prime n 
-lemma nth_prime_strict_mono : StrictMono (Nat.nth Nat.Prime) := Nat.nth_strictMono infinite_setOf_prime  
-lemma nth_prime_injective : Function.Injective (Nat.nth Nat.Prime) := StrictMono.injective nth_prime_strict_mono 
+noncomputable abbrev nthPrime (n : ℕ) := Nat.nth Nat.Prime n
 
-lemma nth_prime_bound (n : ℕ) : n + 1 ≤ Nat.nth Nat.Prime n := by
+lemma nth_prime_is_prime (n : ℕ) : Nat.Prime (nthPrime n) := Nat.nth_mem_of_infinite infinite_setOf_prime n 
+lemma nth_prime_strict_mono : StrictMono nthPrime := Nat.nth_strictMono infinite_setOf_prime  
+lemma nth_prime_injective : Function.Injective nthPrime := StrictMono.injective nth_prime_strict_mono 
+
+lemma nth_prime_bound (n : ℕ) : n + 1 ≤ nthPrime n := by
   induction n with 
   | zero => 
-    rw [nth_prime_zero_eq_two]
+    rw [nthPrime, nth_prime_zero_eq_two]
     exact le_of_ble_eq_true rfl
   | succ m ih => 
-    suffices Nat.nth Nat.Prime m < Nat.nth Nat.Prime (m + 1) by 
+    suffices nthPrime m < nthPrime (m + 1) by 
       exact Lean.Grind.Nat.le_lo (m + 1) (nth Nat.Prime m) (nth Nat.Prime (m + 1)) 1 ih this
     rw [Nat.nth_lt_nth]
     . exact lt_add_one m
@@ -32,12 +34,12 @@ lemma nth_prime_bound (n : ℕ) : n + 1 ≤ Nat.nth Nat.Prime n := by
 
 noncomputable def primorial : ℕ → ℕ
   | 0 => 1
-  | succ n => (Nat.nth Nat.Prime n) * primorial n
+  | succ n => (nthPrime n) * primorial n
 
 
 @[simp] lemma primorial_zero : primorial 0 = 1 := by rfl
 @[simp] lemma primorial_one : primorial 1 = 2 := by simp only [primorial, mul_one, nth_prime_zero_eq_two]
-lemma primorial_succ (n : ℕ) : primorial (n + 1) = (Nat.nth Nat.Prime n) * primorial n := by
+lemma primorial_succ (n : ℕ) : primorial (n + 1) = (nthPrime n) * primorial n := by
   rw [primorial]
 
 
@@ -56,8 +58,35 @@ theorem primorial_pos (n : ℕ) : primorial n > 0 := by
 
 noncomputable def first_n_primes_list : ℕ → List ℕ
   | 0 => []
-  | Nat.succ n => first_n_primes_list n ++ [Nat.nth Nat.Prime n]
+  | Nat.succ n => first_n_primes_list n ++ [nthPrime n]
 
+
+lemma in_first_n_primes_list {p n : ℕ} : p ∈ first_n_primes_list n → ∃ i < n, p = nthPrime i := by 
+  intro hp 
+  induction n with 
+  | zero => 
+    simp only [not_lt_zero', false_and, exists_const]
+    simp only [first_n_primes_list, List.not_mem_nil] at hp
+  | succ k ih => 
+    rw [first_n_primes_list] at hp 
+    apply exists_lt_succ_right.mpr
+    apply List.mem_append.mp at hp
+    cases hp with
+    | inl h =>
+      left
+      simp_all only [forall_const]
+    | inr h => 
+      right 
+      simp_all only [List.mem_cons, List.not_mem_nil, or_false]
+
+
+/- lemma first_n_primes_map (n : ℕ) : first_n_primes_list n = (List.range n).map nthPrime := by  -/
+/-   induction n with  -/
+/-   | zero => rfl -/
+/-   | succ k ih =>  -/
+/-     rw [first_n_primes_list, ih] -/
+/-     rw [show List.range (k+1) = List.range k ++ [k+1] by sorry] -/
+/-     sorry -/
 
 lemma first_n_primes_len (n : ℕ) : (first_n_primes_list n).length = n := by 
   induction n with 
@@ -67,24 +96,22 @@ lemma first_n_primes_len (n : ℕ) : (first_n_primes_list n).length = n := by
     simp only [List.length_append, List.length_cons, List.length_nil, zero_add,
       Nat.add_right_cancel_iff]
     exact ih 
-    
-
-lemma first_n_primes_as_map (n : ℕ) : (first_n_primes_list n) = (List.finRange n).map (Nat.nth Nat.Prime) := by
-  induction n with 
-  | zero => rfl
-  | succ k ih =>
-    rw [first_n_primes_list]
-     
-    sorry 
 
 theorem nodup_first_n_primes (n : ℕ) : (first_n_primes_list n).Nodup := by 
-  rw [first_n_primes_as_map n]
-  rw [List.nodup_map_iff nth_prime_injective]
-  suffices (List.finRange n).Nodup by 
-    . simp [List.flatMap_singleton]
-       
-      sorry
-  exact List.nodup_finRange n
+  induction n with 
+  | zero => exact List.dedup_eq_self.mp rfl 
+  | succ k ih => 
+    rw [first_n_primes_list]
+    rw [← List.concat_eq_append]
+    refine List.Nodup.concat ?_ ?_
+    . apply in_first_n_primes_list.mt 
+      apply not_exists.mpr
+      intro i 
+      by_contra h 
+      obtain ⟨h1,h2⟩ := h
+      apply (nth_prime_strict_mono h1).not_le 
+      exact Nat.le_of_eq h2
+    exact ih
 
 theorem dedup_first_n_primes (n : ℕ) : (first_n_primes_list n) = (first_n_primes_list n).dedup := by 
   exact Eq.symm (List.Nodup.dedup (nodup_first_n_primes n))
@@ -101,7 +128,7 @@ theorem primorial_prime_factors (n : ℕ) : (primorial n).primeFactorsList = fir
     simp only [primorial_zero, primeFactorsList_one]
   | succ k ih => 
     rw [primorial_succ k]
-    let p := Nat.nth Nat.Prime k
+    let p := nthPrime k
     have hp : Nat.Prime p := nth_prime_is_prime k 
     rw [first_n_primes_list, ← ih]
     rw [← Nat.primeFactorsList_prime hp]
@@ -115,9 +142,22 @@ theorem omega_primorial_eq_self (n : ℕ) : ω (primorial n) = n := by
   rw [← dedup_first_n_primes n]
   exact first_n_primes_len n
 
-theorem primorial_omega_le_self (n : ℕ) : primorial (ω n) ≤ n := by 
-   
-  sorry
+lemma primorial_le {k : ℕ} (h : 0 < k) : ∀ n : ℕ, ω n = k → primorial k ≤ n := by 
+  induction k, h using Nat.le_induction with
+  | base => 
+    intro n hn 
+    simp only [succ_eq_add_one, zero_add, primorial_one]
+    simp only [succ_eq_add_one, zero_add] at hn
+    contrapose! hn 
+    interval_cases n 
+    . simp only [cardDistinctFactors_zero, ne_eq, zero_ne_one, not_false_eq_true]
+    . simp only [cardDistinctFactors_one, ne_eq, zero_ne_one, not_false_eq_true] 
+  | succ k ih =>
+    intro n hn 
+    
+    sorry
+
+theorem primorial_omega_le_self {n : ℕ} (h : 0 < ω n) : primorial (ω n) ≤ n := primorial_le h n rfl
 
 -- Auxiliary theorem: primorial (m+1) > factorial (m+1) for m : ℕ
 -- This covers all cases n ≥ 1 by letting n = m+1.
@@ -129,7 +169,7 @@ theorem primorial_gt_factorial_aux (m : ℕ) :
     show primorial (0 + 1) > factorial (0 + 1) -- i.e., primorial 1 > factorial 1
     rw [primorial_succ 0, factorial_succ 0]     -- Expand primorial (0+1) and factorial (0+1)
     rw [primorial_zero, factorial_zero]         -- Expand primorial 0 and factorial 0
-    rw [nth_prime_zero_eq_two]                          -- nthPrime 0 is 2
+    rw [nthPrime, nth_prime_zero_eq_two]                          -- nthPrime 0 is 2
     -- Goal becomes: 2 * 1 > 1 * 1
     norm_num -- Proves 2 > 1
 
@@ -142,7 +182,7 @@ theorem primorial_gt_factorial_aux (m : ℕ) :
     -- Goal: nthPrime (j + 1) * primorial (j + 1) > ((j + 1) + 1) * factorial (j + 1)
 
     have h_mul_prim_gt_mul_fac : 
-    (Nat.nth Nat.Prime (j + 1)) * primorial (j + 1) > (Nat.nth Nat.Prime (j + 1)) * factorial (j + 1) := by
+    (nthPrime (j + 1)) * primorial (j + 1) > (nthPrime (j + 1)) * factorial (j + 1) := by
       apply Nat.mul_lt_mul_of_pos_left
       · exact ih -- primorial (j + 1) > factorial (j + 1)
       · exact Prime.pos (nth_prime_is_prime (j + 1))
