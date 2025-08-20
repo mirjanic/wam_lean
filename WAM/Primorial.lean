@@ -5,8 +5,6 @@ import Mathlib.Data.Nat.Prime.Basic
 import Mathlib.Data.Nat.Prime.Nth
 import Mathlib.NumberTheory.ArithmeticFunction
 
-import Canonical
-
 open Nat ArithmeticFunction
 
 
@@ -126,7 +124,7 @@ theorem nodup_first_n_primes (n : ℕ) : (first_n_primes_list n).Nodup := by
       intro i 
       by_contra h 
       obtain ⟨h1,h2⟩ := h
-      apply (nth_prime_strict_mono h1).not_le 
+      apply (nth_prime_strict_mono h1).not_ge 
       exact Nat.le_of_eq h2
     exact ih
 
@@ -181,8 +179,7 @@ lemma sorted_list_perm_eq' {α : Type} [LinearOrder α] {n : ℕ} : ∀ l1 l2 : 
     intro l1 l2 h1 h2 hl1 hl2 hp
     cases l1 with 
     | nil => 
-      simp_all only [List.sorted_nil, List.nil_perm, Nat.add_eq_left, one_ne_zero, imp_self,
-        implies_true, List.length_nil, Nat.right_eq_add, Nat.add_eq_zero, and_false]
+      simp_all only [List.sorted_nil,one_ne_zero, List.length_nil, Nat.right_eq_add, Nat.add_eq_zero, and_false]
     | cons a as => 
       cases l2 with 
       | nil => 
@@ -334,9 +331,10 @@ lemma primorial_le {k : ℕ} (h : 0 < k) : ∀ n : ℕ, ω n = k → primorial k
     simp only [succ_eq_add_one, zero_add, primorial_one]
     simp only [succ_eq_add_one, zero_add] at hn
     contrapose! hn 
-    interval_cases n 
-    . simp only [cardDistinctFactors_zero, ne_eq, zero_ne_one, not_false_eq_true]
-    . simp only [cardDistinctFactors_one, ne_eq, zero_ne_one, not_false_eq_true] 
+    rw [cardDistinctFactors_apply, ← List.card_toFinset, Nat.toFinset_factors n, ne_eq, ← isPrimePow_iff_card_primeFactors_eq_one]
+    contrapose! hn 
+    exact IsPrimePow.two_le hn
+    
   | succ k hk ih =>
     intro n hn 
     rw [primorial] 
@@ -350,8 +348,8 @@ lemma primorial_le {k : ℕ} (h : 0 < k) : ∀ n : ℕ, ω n = k → primorial k
     obtain ⟨e, m, hpm, hfactor⟩ := Nat.exists_eq_pow_mul_and_not_dvd hn0 p (Nat.Prime.ne_one hpprime) 
     have hm0 : m ≠ 0 := by 
       subst hfactor
-      simp_all only [succ_eq_add_one, zero_add, add_tsub_cancel_right, mem_primeFactors, ne_eq, not_false_eq_true,
-        and_true, true_and, _root_.mul_eq_zero, Nat.pow_eq_zero, not_or, not_and, Decidable.not_not]
+      simp_all only [succ_eq_add_one, zero_add, add_tsub_cancel_right, ne_eq, not_false_eq_true,
+        _root_.mul_eq_zero, Nat.pow_eq_zero, not_or, not_and, Decidable.not_not]
     have hmdvdn : m ∣ n := Dvd.intro_left (p ^ e) (_root_.id (Eq.symm hfactor)) 
     have hm : m.primeFactors = n.primeFactors.erase p := by 
       apply Finset.Subset.antisymm 

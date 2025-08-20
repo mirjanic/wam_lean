@@ -1,10 +1,10 @@
-import Mathlib.NumberTheory.ArithmeticFunction -- For ArithmeticFunction.cardDistinctPrimeFactors
-import Mathlib.Analysis.Asymptotics.Defs -- For IsLittleO
-import Mathlib.Analysis.SpecialFunctions.Log.Basic -- For Real.log
-import Mathlib.Data.Real.Basic -- For basic Real properties
+import Mathlib.NumberTheory.ArithmeticFunction
+import Mathlib.Analysis.Asymptotics.Defs
+import Mathlib.Analysis.SpecialFunctions.Log.Basic
+import Mathlib.Data.Real.Basic
 /- import Mathlib.Topology.Instances.Real -- For Filter.atTop on ℕ, coercions to ℝ -/
-import Mathlib.Data.Nat.Factorial.Basic -- For n!
-import Mathlib.Analysis.SpecialFunctions.Stirling -- For log_factorial_ge_k_log_k_sub_k
+import Mathlib.Data.Nat.Factorial.Basic
+import Mathlib.Analysis.SpecialFunctions.Stirling
 import Mathlib.NumberTheory.PrimeCounting
 
 import WAM.Primorial
@@ -17,7 +17,7 @@ open Filter Topology Nat Real Asymptotics ArithmeticFunction
   The result is cast to ℝ for asymptotic comparison.
   Uses`ArithmeticFunction.cardDistinctPrimeFactors`.
 -/
-noncomputable def omega_real (n : ℕ) : ℝ := (ω n : ℝ)
+noncomputable def omega_real : ℕ → ℝ := Nat.cast ∘ ω
 
 /-
   The natural logarithm of a natural number n, cast to ℝ.
@@ -75,7 +75,7 @@ theorem omega_is_little_o_log_n : omega_real =o[atTop] log_of_nat := by
 
   by_contra h_not_little_o
    
-  simp only [IsLittleO, not_forall, not_eventually] at h_not_little_o
+  simp only [IsLittleO, not_forall] at h_not_little_o
   rcases h_not_little_o with ⟨c, hc_pos, h_freq_norm⟩
   
   rw [isBigOWith_iff] at h_freq_norm
@@ -141,7 +141,7 @@ theorem omega_is_little_o_log_n : omega_real =o[atTop] log_of_nat := by
           norm_cast at h 
         . exact Real.exp_pos (N / c)
         . norm_cast
-      have h : N < c * log_of_nat K := gt_of_ge_of_gt h1 h2
+      have h : N < c * log_of_nat K := lt_of_lt_of_le h2 h1
       have h := lt_trans h hltK 
       unfold omega_real at h 
       rw [← gt_iff_lt] at h 
@@ -212,8 +212,50 @@ theorem omega_is_little_o_log_n : omega_real =o[atTop] log_of_nat := by
   have hltgt : (ω n) / c > (ω n) / c := by 
     have h := gt_trans hltgt h 
     have g : (ω n) + (ω n) / c > (ω n) / c := by 
-      simp_all only [lt_add_iff_pos_left, ofNat_pos, mul_pos_iff_of_pos_left, cast_pos]
+      simp_all only [lt_add_iff_pos_left, cast_pos]
     exact gt_trans h g
 
   exact (lt_self_iff_false (↑(ω n) / c)).mp hltgt
 
+
+theorem isLittleO_rpow {α : Type} {l : Filter α} {s : ℝ} {f g : α → ℝ} 
+  (ho : f =o[l] g) (hs0 : 0 < s) (hf : ∀ᶠ x in l, 0 ≤ f x) (hg : ∀ᶠ x in l, 0 ≤ g x) :
+    (fun x => (f x) ^ s) =o[l] (fun x => (g x) ^ s) := by 
+  rw [isLittleO_iff] at ho ⊢
+  intro c hc 
+  have hcs : 0 < c ^ (1 / s) := rpow_pos_of_pos hc (1 / s)
+  obtain ho := ho hcs 
+  filter_upwards [ho, hf, hg]
+  intro x hx hf hg 
+  have hfs : 0 ≤ f x ^ s := rpow_nonneg hf s
+  have hgs : 0 ≤ g x ^ s := rpow_nonneg hg s 
+  rw [norm_eq_abs, norm_eq_abs, abs_of_nonneg hfs, abs_of_nonneg hgs]
+  rw [norm_eq_abs, norm_eq_abs, abs_of_nonneg hf, abs_of_nonneg hg] at hx
+  calc f x ^ s ≤ (c ^ (1 / s) * g x)^s := by 
+        rw [rpow_le_rpow_iff]
+        . exact hx 
+        . exact hf 
+        . exact (mul_nonneg_iff_of_pos_left hcs).mpr hg
+        . exact hs0
+    _ = (c ^ (1 / s)) ^ s * g x ^ s := mul_rpow (le_of_lt hcs) hg
+    _ = c ^ (1 / s * s) * g x ^ s := by 
+      rw [rpow_mul]
+      exact le_of_lt hc
+    _ = c * g x ^ s := by 
+      ring_nf 
+      rw [mul_inv_cancel₀]
+      . simp only [rpow_one] 
+        exact CommMonoid.mul_comm c (g x ^ s)
+      . exact Ne.symm (_root_.ne_of_lt hs0)
+
+theorem omega_s_is_little_o_log_n_s {s : ℝ} (hs1 : s < 1) : 
+    (fun x ↦ omega_real x ^ (1 - s)) =o[atTop] fun x ↦ log_of_nat x ^ (1 - s) := by 
+  refine isLittleO_rpow omega_is_little_o_log_n (sub_pos.mpr hs1) ?_ ?_ 
+  . apply Filter.Eventually.of_forall
+    intro n 
+    unfold omega_real 
+    simp only [Function.comp_apply, cast_nonneg]
+  . apply Filter.Eventually.of_forall 
+    intro n 
+    unfold log_of_nat 
+    exact log_natCast_nonneg n

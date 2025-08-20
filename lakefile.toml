@@ -11,9 +11,9 @@ autoImplicit = false
 name = "mathlib"
 scope = "leanprover-community"
 
-[[require]]
-name = "Canonical"
-scope = "chasenorman"
+# [[require]]
+# name = "Canonical"
+# scope = "chasenorman"
 
 [[lean_lib]]
 name = "WAM"

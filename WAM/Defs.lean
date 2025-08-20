@@ -51,7 +51,7 @@ namespace WAM.Helpers
       intro h_in_support
       have h_prime : i.Prime := prime_of_mem_primeFactors h_in_support
       exact termVal_pos h_prime
-    . simp_all only [gt_iff_lt, support_factorization, nonempty_primeFactors]
+    . simp_all only [gt_iff_lt, nonempty_primeFactors]
 
   -- The exponent is ≥ 1 for divisiors of n
   lemma divisor_exponent_ge_1
