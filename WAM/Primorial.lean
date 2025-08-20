@@ -16,6 +16,8 @@ lemma nth_prime_is_prime (n : ℕ) : Nat.Prime (nthPrime n) := Nat.nth_mem_of_in
 lemma nth_prime_strict_mono : StrictMono nthPrime := Nat.nth_strictMono infinite_setOf_prime  
 lemma nth_prime_injective : Function.Injective nthPrime := StrictMono.injective nth_prime_strict_mono 
 
+lemma prime_to_nth_prime {p : ℕ} (hp : Nat.Prime p) : ∃ n : ℕ, nthPrime n = p := ⟨Nat.count Nat.Prime p, Nat.nth_count hp⟩
+
 lemma nth_prime_bound (n : ℕ) : n + 1 ≤ nthPrime n := by
   induction n with 
   | zero => 
@@ -92,14 +94,6 @@ lemma first_n_primes_max (n : ℕ) : (first_n_primes_list (n+1)).maximum = nthPr
     apply WithBot.coe_lt_coe.mpr
     exact nth_prime_strict_mono (lt_add_one k)
 
-/- lemma first_n_primes_map (n : ℕ) : first_n_primes_list n = (List.range n).map nthPrime := by  -/
-/-   induction n with  -/
-/-   | zero => rfl -/
-/-   | succ k ih =>  -/
-/-     rw [first_n_primes_list, ih] -/
-/-     rw [show List.range (k+1) = List.range k ++ [k+1] by sorry] -/
-/-     sorry -/
-
 lemma first_n_primes_prod (n : ℕ) : (first_n_primes_list n).prod = primorial n := by 
   induction n with 
   | zero => 
@@ -163,10 +157,6 @@ lemma first_n_primes_sorted (n : ℕ) : le_sorted (first_n_primes_list n) := by
       apply le_of_lt 
       exact nth_prime_strict_mono h1
     . exact ih
-
-/- lemma first_n_primes_below_primeFactors {n : ℕ} (h : 1 < n) :  -/
-/-     nthPrime (n.primeFactors.card - 1) ≤ n.primeFactors.max := by  -/
-/-   sorry -/
 
 /- 
   Main statements 
@@ -250,39 +240,90 @@ theorem omega_primorial_eq_self (n : ℕ) : ω (primorial n) = n := by
 
 lemma omega_impl_exists' {n k : ℕ} (hn : ω n = k) (hk : 0 < k) :
     ∃ x : ℕ, k-1 ≤ x ∧ nthPrime x ∣ n := by 
+  rw [cardDistinctFactors_apply, ← List.card_toFinset, Nat.toFinset_factors n] at hn
+  have hnpfnonempty : n.primeFactors.Nonempty := by 
+    subst hn 
+    exact Finset.card_pos.mp hk
+  have hn1 : 1 < n := by 
+    rw [← Nat.nonempty_primeFactors]
+    exact hnpfnonempty
+  have hn0 : n ≠ 0 := Nat.ne_zero_of_lt hn1
+  set pmax := n.primeFactors.max' hnpfnonempty with hpmax
+  have hpmaxin : pmax ∈ n.primeFactors := Finset.max'_mem n.primeFactors hnpfnonempty
+  have hpmaxprime : Nat.Prime pmax := prime_of_mem_primeFactors hpmaxin
 
-  sorry
+  obtain ⟨x, hx⟩ := prime_to_nth_prime hpmaxprime 
+  have hx := Eq.symm hx
+  use x 
+  constructor 
+  . if hk1 : 0 < k-1 then 
+    obtain ⟨e, m, hpmaxm, hmn⟩ := Nat.exists_eq_pow_mul_and_not_dvd hn0 pmax (Nat.Prime.ne_one hpmaxprime)
+    have hm0 : m ≠ 0 := by 
+      rw [hmn] at hn0 
+      exact right_ne_zero_of_mul hn0
+    have hpe0 : pmax^e ≠ 0 := by 
+        rw [hmn] at hn0
+        exact left_ne_zero_of_mul hn0 
+    have hmerase : m.primeFactors = n.primeFactors.erase pmax := by 
+      rw [hmn, Finset.ext_iff] 
+      intro p
+      rw [iff_iff_implies_and_implies]
+      constructor 
+      . intro h
+        apply Finset.mem_erase_of_ne_of_mem
+        . by_contra heq 
+          subst heq 
+          refine hpmaxm ?_ 
+          exact dvd_of_mem_primeFactors h
+        . rw [Nat.primeFactors_mul hpe0 hm0] 
+          apply Finset.mem_union_right (pmax ^ e).primeFactors
+          exact h
+      . intro h
+        simp only [Finset.mem_erase, ne_eq, mem_primeFactors, _root_.mul_eq_zero, Nat.pow_eq_zero, not_or, not_and, Decidable.not_not] at h
+        obtain ⟨hpnotpmax, hpprime, hpdiv, hpe, _⟩ := h 
+        rw [mem_primeFactors_of_ne_zero hm0] 
+        refine ⟨hpprime, ?_⟩ 
+        rw [Nat.Prime.dvd_mul hpprime] at hpdiv 
+        rcases hpdiv with h1 | h2 
+        . exfalso 
+          refine hpnotpmax ?_
+          rw [← Nat.prime_dvd_prime_iff_eq hpprime hpmaxprime]
+          exact Nat.Prime.dvd_of_dvd_pow hpprime h1
+        . exact h2
+    have hm : ω m = k-1 := by 
+      rw [cardDistinctFactors_apply, ← List.card_toFinset, Nat.toFinset_factors m, hmerase, ← hn] 
+      exact Finset.card_erase_of_mem hpmaxin
+    obtain ⟨y, hy, hydvd⟩ := omega_impl_exists' hm hk1
+    have hyx : y ≠ x := by 
+      by_contra hyx 
+      subst hyx
+      rw [← hx] at hydvd 
+      exact hpmaxm hydvd
+    have hyx : y < x := by 
+      refine Nat.lt_of_le_of_ne ?_ hyx
+      rw [← StrictMono.le_iff_le nth_prime_strict_mono, ← hx, hpmax]
+      apply Finset.le_max'
+      rw [hmn]
+      rw [Nat.primeFactors_mul hpe0 hm0] 
+      apply Finset.mem_union_right (pmax ^ e).primeFactors
+      rw [mem_primeFactors] 
+      exact ⟨nth_prime_is_prime y, hydvd, hm0⟩
+    grind only [cases Or]
+    else 
+    have hk1 : k = 1 := by 
+      simp only [tsub_pos_iff_lt, not_lt] at hk1
+      exact Eq.symm (Nat.le_antisymm hk hk1)
+    rw [hk1] 
+    simp only [tsub_self, zero_le]
+  . rw [← hx]
+    exact dvd_of_mem_primeFactors hpmaxin
 
 lemma omega_impl_exists {n k : ℕ} (hn : ω n = k) (hk : 0 < k) : 
     ∃ p : ℕ, p.Prime ∧ p ∣ n ∧ nthPrime (k-1) ≤ p := by 
-  rw [cardDistinctFactors_apply] at hn
-  have hnobot : n.primeFactors.max ≠ ⊥ := by sorry 
-  set pmax := n.primeFactors.max.unbot hnobot with hpmax
-  have hpmaxin : pmax ∈ n.primeFactors := by sorry
-  use pmax
-  constructor
-  . -- prime 
-    exact prime_of_mem_primeFactors hpmaxin 
-  . constructor 
-    . -- dvd 
-      exact dvd_of_mem_primeFactors hpmaxin
-    . -- le 
-      if hk1 : 0 < k-1 then 
-
-
-        let m := n / (pmax ^ (n.factorization pmax)) 
-        have hm : ω n = k - 1 := by sorry
-        obtain ⟨p, hp, hpdiv, hple⟩ := omega_impl_exists hm hk1
-        
-        sorry
-      else 
-        have heq : k = 1 := by 
-          simp only [tsub_pos_iff_lt, not_lt] at hk1
-          exact Eq.symm (Nat.le_antisymm hk hk1)
-        rw [heq] 
-        simp only [tsub_self, nth_prime_zero_eq_two, ge_iff_le]
-        apply Prime.two_le 
-        exact prime_of_mem_primeFactors hpmaxin
+  obtain ⟨x, hx, hdiv⟩ := omega_impl_exists' hn hk 
+  refine ⟨nthPrime x, nth_prime_is_prime x, hdiv, ?_⟩
+  rw [StrictMono.le_iff_le nth_prime_strict_mono]
+  exact hx
 
 lemma pf_dedup_len {n : ℕ} : n.primeFactorsList.dedup.length = n.primeFactors.card := rfl
 
