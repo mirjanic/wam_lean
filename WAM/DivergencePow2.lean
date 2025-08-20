@@ -4,6 +4,7 @@ import Mathlib.Algebra.Group.Defs
 import Mathlib.Data.Finite.Defs
 import Mathlib.Analysis.Asymptotics.Defs
 import Mathlib.Order.Monotone.Basic
+import Mathlib.Analysis.SpecialFunctions.Pow.Asymptotics
 
 import WAM.Defs
 import WAM.OmegaGrowth
@@ -44,38 +45,34 @@ lemma tendsto_inv_littleo {α : Type} {l : Filter α} {f g : α → ℝ}
   
   refine tendsto_nhdsWithin_of_tendsto_nhds_of_eventually_within fn h_tendsto ?_ 
   apply Filter.Eventually.of_forall hfnpos
+
   
 lemma pow_s_concave {s : ℝ} (h0 : 0 < s) (h1 : s < 1) : ConcaveOn ℝ {x : ℝ | 0 < x} (λ x ↦ x^s) := by 
   rw [show {x : ℝ | 0 < x} = Set.Ioi 0 by rfl]
-  have hderiv {x : ℝ} (hx : 0 < x) : (deriv fun x ↦ x ^ s) x = s * x ^ (s-1) := by 
-    apply Real.deriv_rpow_const
-    left 
-    exact Ne.symm (_root_.ne_of_lt hx)
-  have hderiv2 {x : ℝ} (hx : 0 < x) : (deriv^[2] (fun x ↦ x ^ s)) x = s * (s-1) * s ^ (s-2) := by
-    
-    sorry
-  apply concaveOn_of_deriv2_nonpos
-  . exact convex_Ioi 0 
-  . suffices Continuous (fun x ↦ x ^ s) by 
-      exact Continuous.continuousOn this
-    exact Real.continuous_rpow_const (le_of_lt h0)
-  . rw [interior_Ioi]
-    suffices DifferentiableOn ℝ (fun x : ℝ => x ^ s) {0}ᶜ by
-      refine DifferentiableOn.mono this ?_
-      refine subset_compl_singleton_iff.mpr ?_
-      exact Set.notMem_Ioi_self
-    exact Real.differentiableOn_rpow_const s
-  . -- differentiable 2x 
-    rw [interior_Ioi]
-     
-    sorry
-  . -- main concavity
-    rw [interior_Ioi]
+  apply StrictConcaveOn.concaveOn
+  apply strictConcaveOn_of_deriv2_neg (convex_Ioi 0) 
+  . -- ContinuousOn (fun x ↦ x ^ s) (Ioi 0)
+    apply continuousOn_id.rpow_const
     intro x hx 
-    have h1 : s * (s - 1) < 0 := by sorry 
-    have h2 : 0 < x ^ (s - 2) := by sorry 
-    sorry
+    right 
+    exact le_of_lt h0
+  . -- ∀ x ∈ interior (Ioi 0), deriv^[2] (fun x ↦ x ^ s) x < 0
+    intro x hx
+    simp only [interior_Ioi, mem_Ioi] at hx
+    have hx0 : x ≠ 0 := by exact Ne.symm (_root_.ne_of_lt hx)
+    rw [Function.iterate_succ, Function.iterate_one, Function.comp_apply]
 
+    suffices deriv (deriv λ x ↦ x^s) x = s * (s-1) * x^(s-2) by 
+      rw [this] 
+      simp only [gt_iff_lt] 
+      apply mul_neg_of_neg_of_pos 
+      . apply mul_neg_of_pos_of_neg 
+        . exact h0 
+        . exact sub_neg.mpr h1
+      . exact Real.rpow_pos_of_pos hx (s-2)
+
+        
+    sorry
 
 lemma prime_factor_erase_num {p n k : ℕ} (hp : p.Prime) (hn : n ≠ 0) (hk : k ≠ 0) : 
     (p^k * n).primeFactors.erase p = n.primeFactors.erase p := by 
@@ -100,9 +97,23 @@ lemma rad_le {n : ℕ} (h : 0 < n) : ∏ i ∈ n.primeFactors, i ≤ n := by
   . exact Nat.prod_primeFactors_dvd n
 
 lemma log_rad_le {n : ℕ} (h : 0 < n) : ∑ p ∈ n.primeFactors, Real.log (p:ℝ) ≤ Real.log n := by
+  set lhs := ∑ p ∈ n.primeFactors, Real.log (p:ℝ) with h_lhs 
+  set rhs := Real.log n with h_rhs 
+  rw [← StrictMono.le_iff_le Real.exp_strictMono]
+  unfold rhs 
+  rw [Real.exp_log (cast_pos'.mpr h)] 
+  unfold lhs 
+  rw [Real.exp_sum]
+  suffices ∏ x ∈ n.primeFactors, Real.exp (Real.log ↑x) = ∏ x ∈ n.primeFactors, x by 
+    rw [this] 
+    exact cast_le.mpr (rad_le h) 
+  rw [cast_prod]
+  apply Finset.prod_congr rfl
+  intro x hx 
+  apply Real.exp_log
+  simp_all only [cast_pos, mem_primeFactors, ne_eq, lhs, rhs]
+  exact Prime.pos hx.1
 
-  
-  sorry
 
 /-
 -- pow2triples 
@@ -286,12 +297,14 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
     clear_value num 
 
     let h_omega_growth := omega_is_little_o_log_n
-    let f (k : ℕ) := (Real.log 2)^s + (ω (2^k + 1) : ℝ)^(1-s) * (Real.log (2^k + 1))^s
+    let f_base (k : ℕ) := (Real.log 2)^s + (ω k : ℝ)^(1-s) * (Real.log k)^s
+    let pow2 (k : ℕ) := 2^k + 1 
+    let f := f_base ∘ pow2  -- (Real.log 2)^s + (ω (2^k + 1) : ℝ)^(1-s) * (Real.log (2^k + 1))^s
     
     have hf : f =o[atTop] linear := by
-      let pow2 (k : ℕ) := 2^k + 1 
 
       suffices f =o[atTop] (log_of_nat ∘ pow2) by 
+
         refine Asymptotics.IsLittleO.trans_isBigO this ?_
         rw [Asymptotics.isBigO_atTop_iff_eventually_exists]
         rw [Filter.eventually_atTop]
@@ -327,29 +340,76 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
           _ ≤ 2^n * 2^n := Nat.mul_le_mul_right (2 ^ n) h_2_le_2n
           _ = (2 * 2)^n := Eq.symm (Nat.mul_pow 2 2 n) 
           _ = 4^n := by exact rfl
-      
-      suffices (omega_real ∘ pow2)  =o[atTop] (log_of_nat ∘ pow2) by 
-        /- refine Asymptotics.IsBigO.trans_isLittleO ?_ this  -/
-        /- unfold f  -/
-        /- rw [Asymptotics.isBigO_atTop_iff_eventually_exists] -/
-        /- rw [Filter.eventually_atTop] -/
-        /- use 1  -/
-        /- intro b hb  -/
-        /- let c := 100  -/
-        /- use c  -/
-        /- intro n hn  -/
-        
-        sorry
 
-      apply Asymptotics.IsLittleO.comp_tendsto h_omega_growth
-      apply StrictMono.tendsto_atTop
-      apply strictMono_nat_of_lt_succ 
-      intro n 
-      unfold pow2 
-      refine Nat.add_lt_add_right ?_ 1
-      refine Nat.pow_lt_pow_of_lt ?_ ?_
-      . exact Nat.one_lt_two
-      . exact lt_add_one n
+      unfold f 
+      suffices f_base =o[atTop] log_of_nat by 
+        apply Asymptotics.IsLittleO.comp_tendsto this
+        apply StrictMono.tendsto_atTop
+        apply strictMono_nat_of_lt_succ 
+        intro n 
+        unfold pow2 
+        refine Nat.add_lt_add_right ?_ 1
+        refine Nat.pow_lt_pow_of_lt ?_ ?_
+        . exact Nat.one_lt_two
+        .  exact lt_add_one n
+
+      calc f_base = (λ k ↦ (λ _ ↦ Real.log 2 ^ s) k + (λ x ↦ omega_real x ^ (1 - s) * log_of_nat x ^ s) k) := by 
+            rw [funext_iff] 
+            intro k 
+            unfold f_base omega_real log_of_nat
+            rfl
+        _ =O[atTop] (λ k ↦ omega_real k ^ (1 - s) * log_of_nat k ^ s) := by
+            apply Asymptotics.IsBigO.add 
+            . rw [Asymptotics.isBigO_const_left_iff_pos_le_norm ?_]
+              . use 1 
+                constructor 
+                . exact zero_lt_one 
+                . rw [Filter.eventually_atTop] 
+                  use 3
+                  intro k hk 
+                  unfold omega_real log_of_nat 
+                  simp only [norm_mul, Real.norm_eq_abs]
+                  apply one_le_mul_of_one_le_of_one_le
+                  . 
+                    sorry 
+                  . 
+                    sorry 
+              . rw [ne_eq] 
+                rw [Real.rpow_eq_zero_iff_of_nonneg] 
+                . rw [not_and_or] 
+                  left 
+                  simp only [abs_eq_zero, Real.log_eq_zero, OfNat.ofNat_ne_zero, OfNat.ofNat_ne_one,
+                    false_or, linear]
+                  linarith
+                . exact Real.log_nonneg one_le_two 
+            . exact Asymptotics.isBigO_refl (fun x ↦ omega_real x ^ (1 - s) * log_of_nat x ^ s) atTop
+        _ =o[atTop] (λ k ↦ log_of_nat k ^ (1 - s) * log_of_nat k ^ s) := by 
+          apply Asymptotics.IsLittleO.mul_isBigO ?_ ?_
+          . 
+            sorry  -- mildly interesting
+          . exact Asymptotics.isBigO_refl (fun x ↦ log_of_nat x ^ s) atTop 
+        _ = log_of_nat := by 
+          rw [funext_iff]
+          intro k 
+          calc log_of_nat k ^ (1 - s) * log_of_nat k ^ s = (log_of_nat k)^((1 - s) + s) := by 
+                if h : 0 < log_of_nat k then
+                  apply Eq.symm 
+                  apply Real.rpow_add
+                  exact h 
+                else 
+                  have h : log_of_nat k = 0 := by 
+                    suffices 0 ≤ log_of_nat k by 
+                      apply Eq.symm
+                      rw [← LE.le.not_lt_iff_eq this] 
+                      exact h
+                    exact Real.log_natCast_nonneg k 
+                  rw [h]
+                  simp only [sub_add_cancel, Real.rpow_one, _root_.mul_eq_zero, le_refl]
+                  right 
+                  apply Real.zero_rpow
+                  exact Ne.symm (_root_.ne_of_lt hs0)
+          _ = log_of_nat k := by 
+              simp only [sub_add_cancel, Real.rpow_one]
     
     /-
     -- Now we only need to show that denom grows not faster than f
@@ -463,13 +523,6 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
           exact Real.log_natCast_nonneg p
         . exact le_of_lt hs0
       
-      /- rw [WAM.Helpers.getPrimes] -/
-      /- calc ∑ p ∈ ((2^k+1).primeFactors : Finset ℝ), Real.log ↑p = 0  := by sorry  -/
-      /-   _ ≤ Real.log ↑(2 ^ k + 1) := by sorry  -/
-      /-   _ = Real.log (2 ^ k + 1) := by sorry -/
-      /- refine log_rad_le (Nat.add_pos_right (2 ^ k) zero_lt_one) -/
-
-      
       rw [← Real.log_prod (WAM.Helpers.getPrimes (2 ^ k + 1)) (fun x ↦ x) ?_] 
       . unfold WAM.Helpers.getPrimes 
         rw [Real.log_le_log_iff ?_ ?_] 
@@ -483,14 +536,8 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
             /- rw [← Finset.prod_natCast (2^k+1).primeFactors Nat.floor] -/
              
             sorry
-          suffices (2 ^ k + 1).primeFactorsList.prod ≤ 2 ^ k + 1 by  
-            apply le_trans ?_ this
-            rw [Nat.prod_primeFactorsList]
-            . apply rad_le 
-              exact Nat.add_pos_right (2 ^ k) Nat.one_pos
-            . exact Ne.symm (zero_ne_add_one (2 ^ k))
-          refine le_of_eq (prod_primeFactorsList ?_)
-          exact Ne.symm (zero_ne_add_one (2 ^ k)) 
+          apply rad_le 
+          exact Nat.add_pos_right (2 ^ k) hcpos
         . -- 0 < ∏ i ∈ (2 ^ k + 1).primeFactors, ↑i
           apply Finset.prod_pos
           intro p hp 
@@ -520,7 +567,7 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
     unfold denom
     
     -- Apply relations to finish computation
-    calc WAM.Helpers.denominator (pow2triple k) s = (Real.log 2)^s + ome * expr1  := h_denom_k
+    calc WAM.Helpers.denominator (pow2triple k) s = Real.log 2^s + ome * expr1  := h_denom_k
       _ ≤ (Real.log 2)^s + ome * expr2 := by
         refine (add_le_add_iff_left (Real.log 2 ^ s)).mpr ?_
         refine (mul_le_mul_iff_of_pos_left ?_).mpr hrel1
@@ -531,7 +578,7 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
         refine (add_le_add_iff_left (Real.log 2 ^ s)).mpr ?_
         refine (mul_le_mul_iff_of_pos_left ?_).mpr hrel3
         exact cast_pos'.mpr home
-      _ = Real.log 2 ^ s + ome^(1-s) *  Real.log (2 ^ k + 1) ^ s  := by
+      _ = (Real.log 2) ^ s + ome^(1-s) *  Real.log (2 ^ k + 1) ^ s  := by
         suffices ome * expr4 = ome ^ (1 - s) * Real.log (2 ^ k + 1) ^ s by
           exact congrArg (HAdd.hAdd (Real.log 2 ^ s)) this
         unfold expr4
@@ -542,8 +589,8 @@ atTop.Tendsto (λ k ↦ WAM (2^k * (2^k + 1)) s) atTop := by
         rw [Real.rpow_add (show 0 < (ome:ℝ) by exact cast_pos'.mpr home) 1 (-s)]
         simp only [pow_one, Real.rpow_one]
       _ = c * f k := by
-        unfold c f ome
-        simp only [cast_one, one_mul]
+        unfold c f pow2 f_base ome
+        simp only [cast_one, Function.comp_apply, cast_add, cast_pow, cast_ofNat, one_mul, linear]
 
   exact Asymptotics.IsLittleO.trans_isBigO h_denom h_num
 
